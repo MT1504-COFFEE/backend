@@ -78,17 +78,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        String frontendUrl = System.getenv().getOrDefault("FRONTEND_URL", "http://localhost:3000");
         
         // --- CAMBIO AQUÍ ---
         // Permite la URL de tu frontend local Y el patrón de ngrok
-        configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:3000" // Mantén esta para desarrollo local
-        ));
-        // AÑADE ESTA LÍNEA para permitir cualquier subdominio de ngrok
-        configuration.addAllowedOriginPattern("https://*.ngrok-free.app"); // ngrok usa .ngrok-free.app ahora
-        // O si tienes una versión anterior de ngrok:
-        // configuration.addAllowedOriginPattern("https://*.ngrok.io"); 
-        
+        configuration.setAllowedOrigins(List.of(frontendUrl));
+
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*")); // Permite todos los headers
         configuration.setAllowCredentials(true);
