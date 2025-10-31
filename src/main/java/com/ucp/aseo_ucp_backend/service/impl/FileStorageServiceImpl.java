@@ -9,6 +9,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,6 +20,7 @@ import com.ucp.aseo_ucp_backend.service.FileStorageService;
 import jakarta.annotation.PostConstruct;
 
 @Service
+@Profile("local") // Se activa SÓLO en perfil local
 public class FileStorageServiceImpl implements FileStorageService { // <-- Esta es tu clase principal
 
     private final Path rootLocation;
