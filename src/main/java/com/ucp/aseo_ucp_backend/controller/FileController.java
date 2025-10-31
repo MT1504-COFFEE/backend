@@ -32,33 +32,32 @@ public class FileController {
         }
 
         try {
-            // Guarda el archivo y obtiene el nombre único generado
+            // storeFile ahora solo devuelve el NOMBRE del archivo (ej: abc.jpg)
             String filename = fileStorageService.storeFile(file);
 
-            // Construye la URL pública completa
-            // Asegúrate que fileUrlBase termine con '/'
+            // --- CORRIGE ESTA LÍNEA ---
+            // Construye la URL completa usando la variable de entorno
             String fileDownloadUri = fileUrlBase + filename;
 
-            // Determina el tipo (imagen o video) basado en el ContentType
+            // Determina el tipo (imagen o video)
             String contentType = file.getContentType();
-            String type = "image"; // Por defecto
+            String type = "image";
             if (contentType != null && contentType.startsWith("video")) {
                 type = "video";
             }
 
-            // Devuelve la respuesta JSON esperada por el frontend
+            // Devuelve la respuesta JSON
             return ResponseEntity.ok(Map.of(
-                    "url", fileDownloadUri,
+                    "url", fileDownloadUri, // <-- Esta es la URL pública construida
                     "type", type,
-                    "filename", file.getOriginalFilename(), // Nombre original para mostrar
+                    "filename", file.getOriginalFilename(),
                     "size", file.getSize()
             ));
 
         } catch (Exception e) {
-            // Loguea el error real en un sistema de logging
              System.err.println("Error al subir archivo: " + e.getMessage());
-            // Devuelve un error genérico al cliente
-            return ResponseEntity.status(500).body(Map.of("error", "No se pudo subir el archivo. Inténtalo de nuevo más tarde."));
+             e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", "No se pudo subir el archivo. Error: " + e.getMessage()));
         }
     }
 

@@ -9,7 +9,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile; // <-- 1. IMPORTA ESTO
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,7 +19,6 @@ import com.ucp.aseo_ucp_backend.service.FileStorageService;
 import jakarta.annotation.PostConstruct;
 
 @Service
-@Profile("local") // <-- 2. AÑADE ESTA LÍNEA AQUÍ (encima de la clase)
 public class FileStorageServiceImpl implements FileStorageService { // <-- Esta es tu clase principal
 
     private final Path rootLocation;
