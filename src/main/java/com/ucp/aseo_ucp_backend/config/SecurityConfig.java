@@ -41,6 +41,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable()) // Deshabilitar CSRF para API stateless
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // No crear sesiones
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/auth/login", "/api/auth/register").permitAll() // Endpoints de autenticación públicos
                 .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll() // Permitir acceso a archivos subidos
                 .requestMatchers(HttpMethod.POST, "/api/upload").authenticated() // Subir archivos requiere autenticación (ajusta si es necesario)
@@ -71,19 +72,11 @@ public class SecurityConfig {
         return authenticationConfiguration.getAuthenticationManager();
     }
 
-
-
-    // ... (tus otros beans como securityFilterChain, passwordEncoder, etc.) ...
-
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         String frontendUrl = System.getenv().getOrDefault("FRONTEND_URL", "http://localhost:3000");
-        System.out.println("=== CORS Configuration ===");
-        System.out.println("Allowed Origins: " + frontendUrl);
-        
-        // --- CAMBIO AQUÍ ---
-        // Permite la URL de tu frontend local Y el patrón de ngrok
+
         configuration.setAllowedOrigins(List.of(frontendUrl));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
