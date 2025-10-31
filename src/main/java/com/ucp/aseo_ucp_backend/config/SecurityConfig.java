@@ -87,12 +87,12 @@ public class SecurityConfig {
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList(
             "Authorization",
-        "Content-Type",
-        "Accept",
-        "X-Requested-With"
+            "Content-Type",
+            "Accept",
+            "X-Requested-With"
         ));
         configuration.setAllowCredentials(true);
-
+        configuration.setExposedHeaders(List.of("Authorization"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration); // Aplica a toda tu API
         return source;
