@@ -1,6 +1,0 @@
-[build]
-builder = "paketobuildpacks/builder:full"
-buildCommand = "mvn clean package -DskipTests"
-
-[start]
-command = "java -jar target/*.jar"
