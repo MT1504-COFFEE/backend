@@ -6,10 +6,12 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile; // <-- 1. AÑADE ESTA IMPORTACIÓN
 
 import com.cloudinary.Cloudinary;
 
 @Configuration
+@Profile("prod") // <-- 2. AÑADE ESTA LÍNEA
 public class CloudinaryConfig {
 
     @Value("${cloudinary.cloud_name}")
