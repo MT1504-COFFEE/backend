@@ -1,5 +1,5 @@
 [build]
-builder = "paketobuildpacks/builder:base"
+builder = "paketobuildpacks/builder:full"
 buildCommand = "mvn clean package -DskipTests"
 
 [start]
