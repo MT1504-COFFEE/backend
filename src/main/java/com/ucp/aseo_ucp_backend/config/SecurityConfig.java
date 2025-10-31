@@ -85,7 +85,12 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(List.of(frontendUrl));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*")); // Permite todos los headers
+        configuration.setAllowedHeaders(Arrays.asList(
+            "Authorization",
+        "Content-Type",
+        "Accept",
+        "X-Requested-With"
+        ));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
