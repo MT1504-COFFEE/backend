@@ -79,6 +79,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         String frontendUrl = System.getenv().getOrDefault("FRONTEND_URL", "http://localhost:3000");
+        System.out.println("=== CORS Configuration ===");
+        System.out.println("Allowed Origins: " + frontendUrl);
         
         // --- CAMBIO AQUÍ ---
         // Permite la URL de tu frontend local Y el patrón de ngrok
