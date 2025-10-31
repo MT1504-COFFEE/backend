@@ -5,15 +5,16 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile; // <-- 1. AÑADE ESTA IMPORTACIÓN
+import org.springframework.context.annotation.Configuration; // ¡Importa esto!
+import org.springframework.context.annotation.Profile;
 
 import com.cloudinary.Cloudinary;
 
 @Configuration
-@Profile("prod") // <-- 2. AÑADE ESTA LÍNEA
+@Profile("prod") // ¡Importante! Solo carga esto en producción (Railway)
 public class CloudinaryConfig {
 
+    // Inyectamos 3 variables separadas
     @Value("${cloudinary.cloud_name}")
     private String cloudName;
 
@@ -29,7 +30,7 @@ public class CloudinaryConfig {
         config.put("cloud_name", cloudName);
         config.put("api_key", apiKey);
         config.put("api_secret", apiSecret);
-        config.put("secure", "true");
+        config.put("secure", "true"); // Usa https
         return new Cloudinary(config);
     }
 }
