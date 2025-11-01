@@ -5,8 +5,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder; // Excepción personalizada (crear abajo)
-import org.springframework.stereotype.Service;   // Excepción personalizada (crear abajo)
+import org.springframework.security.crypto.password.PasswordEncoder; 
+import org.springframework.stereotype.Service;   
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ucp.aseo_ucp_backend.dto.AuthResponse;
@@ -20,7 +20,7 @@ import com.ucp.aseo_ucp_backend.repository.UserRepository;
 import com.ucp.aseo_ucp_backend.security.JwtUtil;
 import com.ucp.aseo_ucp_backend.service.AuthService;
 
-import lombok.RequiredArgsConstructor; // Para register
+import lombok.RequiredArgsConstructor; 
 
 @Service
 @RequiredArgsConstructor
@@ -32,24 +32,18 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
 
     @Override
-    @Transactional // Recomendado para operaciones que involucran autenticación
+    @Transactional 
     public AuthResponse login(LoginRequest loginRequest) {
-        // Autentica usando Spring Security (verifica email y contraseña)
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
         );
 
-        // Si la autenticación es exitosa, la establece en el contexto de seguridad
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // Busca al usuario para obtener sus detalles completos
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con email: " + loginRequest.getEmail()));
 
-        // Genera el token JWT
         String token = jwtUtil.generateToken(user);
-
-        // Devuelve el token y los datos del usuario (DTO)
         return new AuthResponse(token, UserDto.fromEntity(user));
     }
 
@@ -62,39 +56,28 @@ public class AuthServiceImpl implements AuthService {
 
         User newUser = new User();
         newUser.setEmail(registerRequest.getEmail());
-        // Recuerda que tu BD usa 'password' (no 'password_hash' después de la limpieza)
         newUser.setPassword(passwordEncoder.encode(registerRequest.getPassword())); 
         newUser.setFullName(registerRequest.getFullName());
-        try {
-            newUser.setRole(User.Role.valueOf(registerRequest.getRole()));
-        } catch (IllegalArgumentException e) {
-            throw new InvalidRoleException("Rol inválido: " + registerRequest.getRole());
-        }
+        
+        // --- ¡CAMBIO IMPORTANTE DE SEGURIDAD! ---
+        // Ignoramos el rol que viene del request y forzamos a "cleaning_staff"
+        newUser.setRole(User.Role.cleaning_staff);
+        // ---------------------------------------
 
         User savedUser = userRepository.save(newUser);
-
-        // Genera el token JWT para el usuario recién registrado
         String token = jwtUtil.generateToken(savedUser);
-
-        // Devuelve el token y los datos del usuario (DTO)
         return new AuthResponse(token, UserDto.fromEntity(savedUser));
     }
 
     @Override
     public User getCurrentUser() {
-        // Obtiene la autenticación actual del contexto de seguridad
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        // Verifica si hay una autenticación válida
         if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal().equals("anonymousUser")) {
-            // No hay usuario autenticado o es anónimo
-            return null; // O podrías lanzar una excepción si prefieres
+            return null; 
         }
 
-        // El 'name' en la autenticación suele ser el username (nuestro email)
         String userEmail = authentication.getName();
-
-        // Busca al usuario en la base de datos por su email
         return userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario '" + userEmail + "' encontrado en contexto pero no en BD."));
     }
