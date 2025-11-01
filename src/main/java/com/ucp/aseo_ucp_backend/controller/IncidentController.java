@@ -7,16 +7,18 @@ import org.springframework.http.HttpStatus; // Importa la entidad para el servic
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable; // Importa HttpStatus
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping; // Importa HttpStatus
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ucp.aseo_ucp_backend.dto.IncidentDto;
-import com.ucp.aseo_ucp_backend.dto.IncidentRequest; // Importa Map
+import com.ucp.aseo_ucp_backend.dto.IncidentRequest;
+import com.ucp.aseo_ucp_backend.dto.UpdateIncidentStatusRequest;
 import com.ucp.aseo_ucp_backend.entity.Incident;
+import com.ucp.aseo_ucp_backend.exception.ResourceNotFoundException; // Importa Map
 import com.ucp.aseo_ucp_backend.service.IncidentService;
 
 import jakarta.validation.Valid;
@@ -53,24 +55,19 @@ public class IncidentController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('admin')") // Solo admin puede cambiar estado
+    @PreAuthorize("hasAuthority('admin')") 
     public ResponseEntity<IncidentDto> updateStatus(
             @PathVariable Long id,
-            @RequestBody Map<String, String> statusUpdate) {
+            @Valid @RequestBody UpdateIncidentStatusRequest request) { // <-- USA EL DTO
         
-        String newStatusStr = statusUpdate.get("status");
-        if (newStatusStr == null) {
-            // Devuelve error si el body no tiene la clave "status"
-            return ResponseEntity.badRequest().build(); 
-        }
-
         try {
-            Incident.Status newStatus = Incident.Status.valueOf(newStatusStr); // Convierte String a Enum
-            IncidentDto updatedIncident = incidentService.updateIncidentStatus(id, newStatus);
+            IncidentDto updatedIncident = incidentService.updateIncidentStatus(id, request);
             return ResponseEntity.ok(updatedIncident);
-        } catch (IllegalArgumentException e) {
-            // Devuelve error si el valor del status no es válido (ej. "en_proceso")
-            return ResponseEntity.badRequest().build(); 
+        } catch (IllegalArgumentException | ResourceNotFoundException e) {
+            // Captura errores de lógica de negocio (ej. usuario no encontrado)
+            // Es mejor si usas tu @ControllerAdvice (GlobalExceptionHandler)
+            // Pero esto funciona como fallback.
+            return ResponseEntity.badRequest().body(null); // O un DTO de error
         }
     }
 }

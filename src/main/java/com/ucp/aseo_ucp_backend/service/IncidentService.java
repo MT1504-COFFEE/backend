@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.ucp.aseo_ucp_backend.dto.IncidentDto;
 import com.ucp.aseo_ucp_backend.dto.IncidentRequest; // Importa la entidad
+import com.ucp.aseo_ucp_backend.dto.UpdateIncidentStatusRequest;
 import com.ucp.aseo_ucp_backend.entity.Incident;
 
 public interface IncidentService {
@@ -17,5 +18,5 @@ public interface IncidentService {
      * @param newStatus El nuevo estado.
      * @return El DTO del incidente actualizado.
      */
-    IncidentDto updateIncidentStatus(Long id, Incident.Status newStatus);
+    IncidentDto updateIncidentStatus(Long id, UpdateIncidentStatusRequest request);
 }

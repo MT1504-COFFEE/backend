@@ -47,6 +47,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/upload").authenticated() // Subir archivos requiere autenticación (ajusta si es necesario)
                 .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated() // Obtener usuario actual requiere token
                 .requestMatchers(HttpMethod.GET, "/api/bathrooms").authenticated() // Ver baños requiere token
+
+                // --- NUEVA REGLA PARA /api/users ---
+                .requestMatchers(HttpMethod.GET, "/api/users").hasAuthority("admin")
+                // ---------------------------------
+
                 // Endpoints de Actividades e Incidentes requieren rol específico
                  .requestMatchers("/api/cleaning-activities/**").hasAnyAuthority("cleaning_staff", "admin")
                  .requestMatchers("/api/incidents/**").hasAnyAuthority("cleaning_staff", "admin")

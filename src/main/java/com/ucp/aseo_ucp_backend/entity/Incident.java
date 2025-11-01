@@ -49,6 +49,10 @@ public class Incident {
     @JoinColumn(name = "reported_by")
     private User reportedBy;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_to_id") // Esta es la columna que creamos en la BD
+    private User assignedTo;
+
     @Column(columnDefinition = "JSON")
     private String photos; // Almacena array JSON de URLs como String
 

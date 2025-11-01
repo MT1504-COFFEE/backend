@@ -11,12 +11,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ucp.aseo_ucp_backend.dto.IncidentDto;
 import com.ucp.aseo_ucp_backend.dto.IncidentRequest;
+import com.ucp.aseo_ucp_backend.dto.UpdateIncidentStatusRequest;
 import com.ucp.aseo_ucp_backend.entity.Bathroom;
 import com.ucp.aseo_ucp_backend.entity.Incident;
 import com.ucp.aseo_ucp_backend.entity.User;
-import com.ucp.aseo_ucp_backend.exception.ResourceNotFoundException; // Importa Collectors
-import com.ucp.aseo_ucp_backend.repository.BathroomRepository;
+import com.ucp.aseo_ucp_backend.exception.ResourceNotFoundException;
+import com.ucp.aseo_ucp_backend.repository.BathroomRepository; // Importa Collectors
 import com.ucp.aseo_ucp_backend.repository.IncidentRepository;
+import com.ucp.aseo_ucp_backend.repository.UserRepository;
 import com.ucp.aseo_ucp_backend.service.AuthService;
 import com.ucp.aseo_ucp_backend.service.IncidentService;
 
@@ -28,6 +30,7 @@ public class IncidentServiceImpl implements IncidentService {
 
     private final IncidentRepository incidentRepository;
     private final BathroomRepository bathroomRepository;
+    private final UserRepository userRepository;
     private final AuthService authService;
     private final ObjectMapper objectMapper;
 
@@ -78,30 +81,53 @@ public class IncidentServiceImpl implements IncidentService {
 
     @Override
     @Transactional
-    public IncidentDto updateIncidentStatus(Long id, Incident.Status newStatus) {
-        // 1. Encuentra el incidente o lanza error
+    public IncidentDto updateIncidentStatus(Long id, UpdateIncidentStatusRequest request) {
+        // 1. Encuentra el incidente
         Incident incident = incidentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Incidente", "id", id));
-
-        // 2. Actualiza el estado
+        
+        Incident.Status newStatus = request.getStatus();
         incident.setStatus(newStatus);
 
-        // 3. Si el nuevo estado es "resolved", guarda la fecha de resolución
-        if (newStatus == Incident.Status.resolved) {
+        // 2. Lógica de asignación
+        if (newStatus == Incident.Status.in_progress) {
+            // Asignar el usuario
+            if (request.getAssignedUserId() == null) {
+                throw new IllegalArgumentException("Se requiere un ID de usuario para asignar el incidente.");
+            }
+            User assignedUser = userRepository.findById(request.getAssignedUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario", "id", request.getAssignedUserId()));
+            
+            // Validar que sea personal de limpieza
+            if (assignedUser.getRole() != User.Role.cleaning_staff) {
+                 throw new IllegalArgumentException("Solo se puede asignar incidentes al personal de limpieza.");
+            }
+
+            incident.setAssignedTo(assignedUser);
+            incident.setResolvedAt(null); // Quitar fecha de resolución si se re-abre
+
+        } else if (newStatus == Incident.Status.resolved) {
+            // Marcar como resuelto
             incident.setResolvedAt(LocalDateTime.now());
-        } else {
-            incident.setResolvedAt(null); // Quita la fecha si se re-abre
+            // Opcional: mantener al usuario asignado para saber quién lo cerró
+            // o ponerlo en null si ya no importa:
+            // incident.setAssignedTo(null); 
+
+        } else if (newStatus == Incident.Status.pending) {
+            // Si se regresa a pendiente
+            incident.setAssignedTo(null);
+            incident.setResolvedAt(null);
         }
 
-        // 4. Guarda y devuelve el DTO actualizado
+        // 3. Guardar
         Incident updatedIncident = incidentRepository.save(incident);
         
-        // 5. Recarga con 'findAllWithDetails' para obtener nombres, etc.
-        // O mapea manualmente si es más simple (requeriría EAGER loading o findByIdWithDetails)
-        // Por simplicidad, recargamos (no es lo más óptimo, pero asegura datos completos):
+        // 4. Recargar la entidad con todos los detalles (incluyendo nombres) para el DTO
+        // (Tu repositorio tiene findAllWithDetails, pero no findByIdWithDetails,
+        // así que usamos este truco)
         Incident detailedIncident = incidentRepository.findAllWithDetails()
                                      .stream().filter(i -> i.getId().equals(updatedIncident.getId()))
-                                     .findFirst().orElse(updatedIncident);
+                                     .findFirst().orElse(updatedIncident); // fallback
 
         return IncidentDto.fromEntity(detailedIncident);
     }
