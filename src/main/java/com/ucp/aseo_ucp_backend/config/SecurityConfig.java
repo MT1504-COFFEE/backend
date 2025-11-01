@@ -88,9 +88,8 @@ public class SecurityConfig {
         ));
         configuration.setAllowCredentials(true);
         configuration.setExposedHeaders(List.of("Authorization"));
-        System.out.println(frontendUrl);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration); // Aplica a toda tu API
+        source.registerCorsConfiguration("/api/**", configuration); // Aplica a toda tu API
         return source;
     }
 }
