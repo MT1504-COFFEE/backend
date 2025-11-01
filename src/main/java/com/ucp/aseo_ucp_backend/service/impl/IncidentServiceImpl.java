@@ -1,6 +1,6 @@
-package com.ucp.aseo_ucp_backend.service.impl; // O tu paquete
+package com.ucp.aseo_ucp_backend.service.impl;
 
-import java.time.LocalDateTime; // Importa el DTO
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -16,11 +16,13 @@ import com.ucp.aseo_ucp_backend.entity.Bathroom;
 import com.ucp.aseo_ucp_backend.entity.Incident;
 import com.ucp.aseo_ucp_backend.entity.User;
 import com.ucp.aseo_ucp_backend.exception.ResourceNotFoundException;
-import com.ucp.aseo_ucp_backend.repository.BathroomRepository; // Importa Collectors
+import com.ucp.aseo_ucp_backend.repository.BathroomRepository;
 import com.ucp.aseo_ucp_backend.repository.IncidentRepository;
 import com.ucp.aseo_ucp_backend.repository.UserRepository;
 import com.ucp.aseo_ucp_backend.service.AuthService;
 import com.ucp.aseo_ucp_backend.service.IncidentService;
+import com.ucp.aseo_ucp_backend.service.EmailService;
+import jakarta.mail.MessagingException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,21 +32,21 @@ public class IncidentServiceImpl implements IncidentService {
 
     private final IncidentRepository incidentRepository;
     private final BathroomRepository bathroomRepository;
-    private final UserRepository userRepository;
+    private final UserRepository userRepository; 
     private final AuthService authService;
     private final ObjectMapper objectMapper;
+    private final EmailService emailService; // Servicio para enviar correos
 
     @Override
     @Transactional
     public Incident createIncident(IncidentRequest request) {
-        // ... (código de createIncident como antes) ...
          User currentUser = authService.getCurrentUser();
          if (currentUser == null) {
              throw new RuntimeException("Usuario no autenticado para reportar incidente.");
          }
 
          Bathroom bathroom = bathroomRepository.findById(request.getBathroomId())
-                 .orElseThrow(() -> new RuntimeException("Baño no encontrado con ID: " + request.getBathroomId()));
+                 .orElseThrow(() -> new ResourceNotFoundException("Baño no encontrado con ID: " + request.getBathroomId()));
 
          Incident incident = new Incident();
          incident.setTitle(request.getTitle());
@@ -64,70 +66,78 @@ public class IncidentServiceImpl implements IncidentService {
              throw new RuntimeException("Error al procesar la lista de fotos para el incidente", e);
          }
 
-         return incidentRepository.save(incident);
+         Incident savedIncident = incidentRepository.save(incident); 
+
+         // Enviar correo al admin
+         try {
+             emailService.sendNewIncidentNotification(savedIncident);
+         } catch (MessagingException e) {
+             System.err.println("Error al enviar email de nuevo incidente: " + e.getMessage());
+             e.printStackTrace(); // Usa un logger en producción
+         }
+
+         return savedIncident; 
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<IncidentDto> getAllIncidents() { // <- ASEGÚRATE que devuelva List<IncidentDto>
-        // Usa la consulta con JOIN FETCH del repositorio para eficiencia
+    public List<IncidentDto> getAllIncidents() { 
         List<Incident> incidents = incidentRepository.findAllWithDetails();
 
-        // Mapea la lista de Entidades a una lista de DTOs
         return incidents.stream()
-                        .map(IncidentDto::fromEntity) // Llama al método estático del DTO
-                        .collect(Collectors.toList()); // Recolecta en una nueva lista
+                        .map(IncidentDto::fromEntity) 
+                        .collect(Collectors.toList()); 
     }
 
     @Override
     @Transactional
     public IncidentDto updateIncidentStatus(Long id, UpdateIncidentStatusRequest request) {
-        // 1. Encuentra el incidente
         Incident incident = incidentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Incidente", "id", id));
         
         Incident.Status newStatus = request.getStatus();
         incident.setStatus(newStatus);
+        
+        User userToNotify = null; 
 
-        // 2. Lógica de asignación
         if (newStatus == Incident.Status.in_progress) {
-            // Asignar el usuario
             if (request.getAssignedUserId() == null) {
                 throw new IllegalArgumentException("Se requiere un ID de usuario para asignar el incidente.");
             }
             User assignedUser = userRepository.findById(request.getAssignedUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", "id", request.getAssignedUserId()));
             
-            // Validar que sea personal de limpieza
             if (assignedUser.getRole() != User.Role.cleaning_staff) {
                  throw new IllegalArgumentException("Solo se puede asignar incidentes al personal de limpieza.");
             }
 
             incident.setAssignedTo(assignedUser);
-            incident.setResolvedAt(null); // Quitar fecha de resolución si se re-abre
+            incident.setResolvedAt(null); 
+            
+            userToNotify = assignedUser; 
 
         } else if (newStatus == Incident.Status.resolved) {
-            // Marcar como resuelto
             incident.setResolvedAt(LocalDateTime.now());
-            // Opcional: mantener al usuario asignado para saber quién lo cerró
-            // o ponerlo en null si ya no importa:
-            // incident.setAssignedTo(null); 
-
         } else if (newStatus == Incident.Status.pending) {
-            // Si se regresa a pendiente
             incident.setAssignedTo(null);
             incident.setResolvedAt(null);
         }
 
-        // 3. Guardar
         Incident updatedIncident = incidentRepository.save(incident);
         
-        // 4. Recargar la entidad con todos los detalles (incluyendo nombres) para el DTO
-        // (Tu repositorio tiene findAllWithDetails, pero no findByIdWithDetails,
-        // así que usamos este truco)
         Incident detailedIncident = incidentRepository.findAllWithDetails()
                                      .stream().filter(i -> i.getId().equals(updatedIncident.getId()))
-                                     .findFirst().orElse(updatedIncident); // fallback
+                                     .findFirst().orElse(updatedIncident); 
+
+        // Enviar correo de asignación si aplica
+        if (userToNotify != null) {
+            try {
+                emailService.sendIncidentAssignmentNotification(detailedIncident, userToNotify);
+            } catch (MessagingException e) {
+                System.err.println("Error al enviar email de asignación: " + e.getMessage());
+                e.printStackTrace(); // Usa un logger en producción
+            }
+        }
 
         return IncidentDto.fromEntity(detailedIncident);
     }
