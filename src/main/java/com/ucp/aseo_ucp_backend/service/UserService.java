@@ -6,4 +6,5 @@ import com.ucp.aseo_ucp_backend.dto.UserDto;
 
 public interface UserService {
     List<UserDto> getAllUsers();
+    void deleteUser(Long id);
 }
