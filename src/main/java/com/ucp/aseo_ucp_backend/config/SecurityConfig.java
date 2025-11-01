@@ -90,7 +90,7 @@ public class SecurityConfig {
         configuration.setExposedHeaders(List.of("Authorization"));
         System.out.println(frontendUrl);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", configuration); // Aplica a toda tu API
+        source.registerCorsConfiguration("/**", configuration); // Aplica a toda tu API
         return source;
     }
 }
