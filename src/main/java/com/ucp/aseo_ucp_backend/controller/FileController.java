@@ -6,8 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.DeleteMapping; // Importar
-import org.springframework.web.bind.annotation.PathVariable;  // Importar
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;  
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -23,10 +23,8 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-public class FileController {
+public class FileController { // <-- La clase principal COMIENZA aquí
 
-    // Inyectamos la interfaz genérica. Spring decidirá si usa la Local o la de Cloudinary
-    // basado en el perfil activo (ej. 'prod' en Railway).
     private final FileStorageService fileStorageService; 
     private final FileUrlResolver fileUrlResolver;
 
@@ -39,11 +37,8 @@ public class FileController {
             String storedFileNameOrUrl;
             Map<String, Object> responseBody;
 
-            // Verificamos si el servicio inyectado es el de Cloudinary
             if (fileStorageService instanceof CloudinaryFileStorageServiceImpl) {
                 CloudinaryFileStorageServiceImpl cloudinaryService = (CloudinaryFileStorageServiceImpl) fileStorageService;
-                
-                // Usamos el método 'upload' que devuelve el Mapa completo
                 Map uploadResult = cloudinaryService.upload(file);
                 
                 String contentType = file.getContentType();
@@ -51,13 +46,12 @@ public class FileController {
 
                 responseBody = Map.of(
                         "url", uploadResult.get("secure_url").toString(),
-                        "publicId", uploadResult.get("public_id").toString(), // ENVIAMOS EL publicId
+                        "publicId", uploadResult.get("public_id").toString(), 
                         "type", type,
                         "filename", file.getOriginalFilename(),
                         "size", file.getSize()
                 );
             } else {
-                // Lógica 'local' (si estás en tu máquina)
                 storedFileNameOrUrl = fileStorageService.storeFile(file);
                 String fileDownloadUri = fileUrlResolver.resolve(storedFileNameOrUrl);
                 String contentType = file.getContentType();
@@ -65,7 +59,7 @@ public class FileController {
                 
                 responseBody = Map.of(
                         "url", fileDownloadUri,
-                        "publicId", storedFileNameOrUrl, // En local, el publicId es el nombre del archivo
+                        "publicId", storedFileNameOrUrl, 
                         "type", type,
                         "filename", file.getOriginalFilename(),
                         "size", file.getSize()
@@ -81,16 +75,14 @@ public class FileController {
         }
     }
 
-    // Endpoint para BORRAR
     @DeleteMapping("/upload/{publicId}")
     public ResponseEntity<?> deleteFile(@PathVariable String publicId) {
         try {
-            // De nuevo, verificamos si estamos en 'prod' (Cloudinary)
             if (fileStorageService instanceof CloudinaryFileStorageServiceImpl) {
                 CloudinaryFileStorageServiceImpl cloudinaryService = (CloudinaryFileStorageServiceImpl) fileStorageService;
                 cloudinaryService.deleteFile(publicId);
             } else if (fileStorageService instanceof FileStorageServiceImpl) {
-                // Aquí iría la lógica para borrar el archivo local
+                // Lógica para borrar archivo local (si la implementas en FileStorageServiceImpl)
                 // ((FileStorageServiceImpl) fileStorageService).deleteFile(publicId);
             }
             return ResponseEntity.ok(Map.of("message", "Archivo eliminado"));
@@ -100,31 +92,36 @@ public class FileController {
         }
     }
 
+} // <-- La clase principal FileController TERMINA aquí
 
-    // --- El resto de tu archivo (FileUrlResolver) se queda igual ---
-    // (Asegúrate de que estas clases estén al final del archivo)
-    interface FileUrlResolver {
-        String resolve(String fileNameOrUrl);
-    }
+
+// --- CLASES MOVIDAS FUERA DE FileController ---
+
+/**
+ * Interfaz para resolver la URL base de los archivos.
+ * Spring inyectará la implementación correcta ('local' o 'prod')
+ */
+interface FileUrlResolver {
+    String resolve(String fileNameOrUrl);
+}
+
+@Component
+@Profile("local")
+class LocalFileUrlResolver implements FileUrlResolver {
+    @Value("${file.upload-url-base:http://localhost:8080/uploads/}") 
+    private String fileUrlBase;
     
-    @Component
-    @Profile("local")
-    class LocalFileUrlResolver implements FileUrlResolver {
-        @Value("${file.upload-url-base:http://localhost:8080/uploads/}") 
-        private String fileUrlBase;
-        
-        @Override
-        public String resolve(String fileName) {
-            return fileUrlBase + fileName;
-        }
+    @Override
+    public String resolve(String fileName) {
+        return fileUrlBase + fileName;
     }
-    
-    @Component
-    @Profile("prod")
-    class ProdFileUrlResolver implements FileUrlResolver {
-        @Override
-        public String resolve(String fullUrl) {
-            return fullUrl; // Cloudinary ya da la URL completa
-        }
+}
+
+@Component
+@Profile("prod")
+class ProdFileUrlResolver implements FileUrlResolver {
+    @Override
+    public String resolve(String fullUrl) {
+        return fullUrl; // Cloudinary ya da la URL completa
     }
 }
