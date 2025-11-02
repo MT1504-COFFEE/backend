@@ -23,7 +23,6 @@ import com.ucp.aseo_ucp_backend.service.AuthService;
 import com.ucp.aseo_ucp_backend.service.EmailService;
 import com.ucp.aseo_ucp_backend.service.IncidentService;
 
-import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -35,7 +34,7 @@ public class IncidentServiceImpl implements IncidentService {
     private final UserRepository userRepository; 
     private final AuthService authService;
     private final ObjectMapper objectMapper;
-    private final EmailService emailService; // Servicio para enviar correos
+    private final EmailService emailService; 
 
     @Override
     @Transactional
@@ -68,20 +67,13 @@ public class IncidentServiceImpl implements IncidentService {
 
          Incident savedIncident = incidentRepository.save(incident); 
 
-         // --- CORRECCIÓN CRÍTICA ---
-         // Volvemos a cargar el incidente pero AHORA con todos los datos
-         // (edificio, piso, etc.) usando la nueva consulta.
          Incident detailedIncident = incidentRepository.findByIdWithDetails(savedIncident.getId())
-                                       .orElse(savedIncident); // Fallback por si acaso
+                                       .orElse(savedIncident); 
          
-         // Ahora llamamos al email service con el incidente "detallado"
-         try {
-             emailService.sendNewIncidentNotification(detailedIncident);
-         } catch (MessagingException e) {
-             // No detenemos la operación si el correo falla, solo lo registramos
-             System.err.println("Error al enviar email de nuevo incidente: " + e.getMessage());
-             e.printStackTrace(); // Usa un logger en producción
-         }
+         // --- LLAMADA SIMPLIFICADA ---
+         // Ya no necesitamos try-catch. Si el correo falla,
+         // el @Async y el try-catch en EmailServiceImpl se encargarán.
+         emailService.sendNewIncidentNotification(detailedIncident);
          // ------------------------------------
 
          return savedIncident; 
@@ -131,20 +123,17 @@ public class IncidentServiceImpl implements IncidentService {
             incident.setResolvedAt(null);
         }
 
-        incidentRepository.save(incident); // Guarda los cambios primero
+        incidentRepository.save(incident); 
         
-        // Carga la entidad con todos los detalles ANTES de enviar el correo
         Incident detailedIncident = incidentRepository.findByIdWithDetails(id)
                                      .orElseThrow(() -> new ResourceNotFoundException("Incidente", "id", id));
 
+        // --- LLAMADA SIMPLIFICADA ---
         if (userToNotify != null) {
-            try {
-                emailService.sendIncidentAssignmentNotification(detailedIncident, userToNotify);
-            } catch (MessagingException e) {
-                System.err.println("Error al enviar email de asignación: " + e.getMessage());
-                e.printStackTrace(); 
-            }
+             // Ya no necesitamos try-catch.
+            emailService.sendIncidentAssignmentNotification(detailedIncident, userToNotify);
         }
+        // ------------------------------------------------
 
         return IncidentDto.fromEntity(detailedIncident);
     }

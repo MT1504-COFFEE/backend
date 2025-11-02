@@ -2,13 +2,12 @@ package com.ucp.aseo_ucp_backend.service;
 
 import com.ucp.aseo_ucp_backend.entity.Incident;
 import com.ucp.aseo_ucp_backend.entity.User;
-import jakarta.mail.MessagingException;
+// Ya no importamos 'MessagingException'
 
 public interface EmailService {
     
-    // Correo para el Admin cuando se crea un incidente
-    void sendNewIncidentNotification(Incident incident) throws MessagingException;
+    // Los métodos ya no declaran 'throws MessagingException'
+    void sendNewIncidentNotification(Incident incident);
     
-    // Correo para el Colaborador cuando se le asigna
-    void sendIncidentAssignmentNotification(Incident incident, User assignedUser) throws MessagingException;
+    void sendIncidentAssignmentNotification(Incident incident, User assignedUser);
 }
