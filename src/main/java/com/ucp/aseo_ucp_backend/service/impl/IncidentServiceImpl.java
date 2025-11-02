@@ -1,6 +1,6 @@
-package com.ucp.aseo_ucp_backend.service.impl;
+package com.ucp.aseo_ucp_backend.service.impl; 
 
-import java.time.LocalDateTime;
+import java.time.LocalDateTime; 
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -11,19 +11,19 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ucp.aseo_ucp_backend.dto.IncidentDto;
 import com.ucp.aseo_ucp_backend.dto.IncidentRequest;
-import com.ucp.aseo_ucp_backend.dto.UpdateIncidentStatusRequest;
+import com.ucp.aseo_ucp_backend.dto.UpdateIncidentStatusRequest; 
 import com.ucp.aseo_ucp_backend.entity.Bathroom;
 import com.ucp.aseo_ucp_backend.entity.Incident;
 import com.ucp.aseo_ucp_backend.entity.User;
-import com.ucp.aseo_ucp_backend.exception.ResourceNotFoundException;
+import com.ucp.aseo_ucp_backend.exception.ResourceNotFoundException; 
 import com.ucp.aseo_ucp_backend.repository.BathroomRepository;
 import com.ucp.aseo_ucp_backend.repository.IncidentRepository;
-import com.ucp.aseo_ucp_backend.repository.UserRepository;
+import com.ucp.aseo_ucp_backend.repository.UserRepository; 
 import com.ucp.aseo_ucp_backend.service.AuthService;
-import com.ucp.aseo_ucp_backend.service.IncidentService;
 import com.ucp.aseo_ucp_backend.service.EmailService;
-import jakarta.mail.MessagingException;
+import com.ucp.aseo_ucp_backend.service.IncidentService;
 
+import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -68,13 +68,21 @@ public class IncidentServiceImpl implements IncidentService {
 
          Incident savedIncident = incidentRepository.save(incident); 
 
-         // Enviar correo al admin
+         // --- CORRECCIÓN CRÍTICA ---
+         // Volvemos a cargar el incidente pero AHORA con todos los datos
+         // (edificio, piso, etc.) usando la nueva consulta.
+         Incident detailedIncident = incidentRepository.findByIdWithDetails(savedIncident.getId())
+                                       .orElse(savedIncident); // Fallback por si acaso
+         
+         // Ahora llamamos al email service con el incidente "detallado"
          try {
-             emailService.sendNewIncidentNotification(savedIncident);
+             emailService.sendNewIncidentNotification(detailedIncident);
          } catch (MessagingException e) {
+             // No detenemos la operación si el correo falla, solo lo registramos
              System.err.println("Error al enviar email de nuevo incidente: " + e.getMessage());
              e.printStackTrace(); // Usa un logger en producción
          }
+         // ------------------------------------
 
          return savedIncident; 
     }
@@ -123,19 +131,18 @@ public class IncidentServiceImpl implements IncidentService {
             incident.setResolvedAt(null);
         }
 
-        Incident updatedIncident = incidentRepository.save(incident);
+        incidentRepository.save(incident); // Guarda los cambios primero
         
-        Incident detailedIncident = incidentRepository.findAllWithDetails()
-                                     .stream().filter(i -> i.getId().equals(updatedIncident.getId()))
-                                     .findFirst().orElse(updatedIncident); 
+        // Carga la entidad con todos los detalles ANTES de enviar el correo
+        Incident detailedIncident = incidentRepository.findByIdWithDetails(id)
+                                     .orElseThrow(() -> new ResourceNotFoundException("Incidente", "id", id));
 
-        // Enviar correo de asignación si aplica
         if (userToNotify != null) {
             try {
                 emailService.sendIncidentAssignmentNotification(detailedIncident, userToNotify);
             } catch (MessagingException e) {
                 System.err.println("Error al enviar email de asignación: " + e.getMessage());
-                e.printStackTrace(); // Usa un logger en producción
+                e.printStackTrace(); 
             }
         }
 
