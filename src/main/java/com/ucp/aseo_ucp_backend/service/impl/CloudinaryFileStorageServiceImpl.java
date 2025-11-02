@@ -41,10 +41,10 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
         
         String publicId = UUID.randomUUID().toString();
         
-        // --- OPTIMIZACIÓN DE MEMORIA ---
-        // En lugar de file.getBytes(), usamos file.getInputStream()
-        // Esto envía el archivo directamente a Cloudinary sin cargarlo todo en la RAM.
-        Map uploadResult = cloudinary.uploader().upload(file.getInputStream(),
+        // --- LA LÍNEA CORREGIDA ---
+        // Volvemos a usar file.getBytes()
+        // Esto es seguro ahora porque aumentaste el límite en application.properties
+        Map uploadResult = cloudinary.uploader().upload(file.getBytes(),
                 ObjectUtils.asMap(
                         "public_id", publicId,
                         "resource_type", "auto" 
