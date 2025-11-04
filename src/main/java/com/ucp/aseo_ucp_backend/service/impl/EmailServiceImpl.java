@@ -18,7 +18,6 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors; // <-- AÑADIR IMPORT
 
 @Service
 @RequiredArgsConstructor
@@ -28,19 +27,19 @@ public class EmailServiceImpl implements EmailService {
     private final ObjectMapper objectMapper; 
     private final UserRepository userRepository; // <-- INYECTAR REPOSITORIO DE USUARIOS
 
-    // Ya no necesitamos 'adminEmail'
-    // @Value("${admin.notification.email}")
-    // private String adminEmail; 
+    // Inyecta el dominio de Mailgun (que te da Railway)
+    @Value("${MAILGUN_DOMAIN}")
+    private String mailgunDomain;
 
-    @Value("${spring.mail.username}")
-    private String fromEmail; 
+    // Ya no necesitamos 'spring.mail.username' aquí
+    // @Value("${spring.mail.username}")
+    // private String fromEmail; 
 
     
     @Async // Asegúrate de tener @EnableAsync en AseoUcpBackendApplication.java
     @Override
     public void sendNewIncidentNotification(Incident incident) {
-        // --- ¡LA CORRECCIÓN CRÍTICA! ---
-        // Atrapamos CUALQUIER error de correo para que no cancele el guardado.
+        // Atrapa CUALQUIER error para que no rompa la transacción principal
         try {
             // 1. Buscar todos los administradores
             List<User> admins = userRepository.findAllByRole(User.Role.admin);
@@ -57,7 +56,8 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom(fromEmail);
+            // 3. Usar el correo de Mailgun como remitente
+            helper.setFrom("alertas@" + mailgunDomain); // Mailgun requiere un correo de su dominio
             helper.setTo(adminEmails); // <-- Enviar a todos los admins
             helper.setSubject("¡Nuevo Incidente Reportado! - " + incident.getTitle());
 
@@ -89,10 +89,8 @@ public class EmailServiceImpl implements EmailService {
             mailSender.send(message);
 
         } catch (Exception e) {
-            // 3. ¡LA CORRECCIÓN IMPORTANTE!
-            // Atrapamos 'Exception' (la más genérica)
             System.err.println("Error FATAL al enviar correo de 'nuevo incidente'. El incidente SÍ se guardó.");
-            System.err.println("Revisa tus variables MAIL_USERNAME y MAIL_PASSWORD en Railway.");
+            System.err.println("Revisa la configuración de Mailgun en Railway.");
             System.err.println("Error de correo: " + e.getMessage());
             e.printStackTrace();
         }
@@ -111,7 +109,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom(fromEmail);
+            helper.setFrom("asignaciones@" + mailgunDomain); // Usar el dominio de Mailgun
             helper.setTo(assignedUser.getEmail()); 
             helper.setSubject("Nueva Tarea Asignada: " + incident.getTitle());
 
@@ -122,7 +120,6 @@ public class EmailServiceImpl implements EmailService {
                            String.valueOf(incident.getBathroom().getFloor().getFloorNumber()) : "N/A";
             String time = incident.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm"));
             String firstPhotoUrl = getFirstPhotoUrl(incident.getPhotos());
-
 
             String htmlContent = String.format(
                 "<html><body>" +
@@ -157,7 +154,6 @@ public class EmailServiceImpl implements EmailService {
             mailSender.send(message);
 
         } catch (Exception e) {
-            // ¡CORRECCIÓN IMPORTANTE (igual que arriba)!
             System.err.println("Error FATAL al enviar correo de 'asignación'. El incidente SÍ se asignó.");
             System.err.println("Error de correo: " + e.getMessage());
             e.printStackTrace();
