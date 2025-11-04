@@ -165,7 +165,11 @@ public class EmailServiceImpl implements EmailService {
         
         // 2. Crear los headers con la Autenticación
         HttpHeaders headers = new HttpHeaders();
-        headers.setMediaType(MediaType.APPLICATION_FORM_URLENCODED);
+        
+        // --- ESTA ES LA CORRECCIÓN ---
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED); // Cambiado de setMediaType
+        // -----------------------------
+
         headers.setBasicAuth("api", mailgunApiKey); // Autenticación "Basic" con usuario "api" y la API Key como contraseña
 
         // 3. Crear el cuerpo (body) del formulario
@@ -189,6 +193,43 @@ public class EmailServiceImpl implements EmailService {
         
         System.out.println("Correo enviado exitosamente a: " + to);
     }
+    
+    // --- MÉTODO PARA EL LINK DE RESET (Faltaba en tu EmailServiceImpl) ---
+    @Async
+    @Override
+    public void sendPasswordResetLink(User user, String token) {
+        try {
+            // Asegúrate de que la URL base del frontend esté en tus variables de entorno
+            String frontendUrl = System.getenv().getOrDefault("FRONTEND_URL", "http://localhost:3000");
+            String resetUrl = frontendUrl + "/reset-password?token=" + token;
+
+            String htmlContent = String.format(
+                "<html><body>" +
+                "<h2>Hola %s,</h2>" +
+                "<p>Solicitaste restablecer tu contraseña para AseoUCP.</p>" +
+                "<p>Haz clic en el siguiente enlace para crear una nueva contraseña:</p>" +
+                "<a href=\"%s\" style=\"background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;\">Restablecer Contraseña</a>" +
+                "<p>Si no solicitaste esto, ignora este correo.</p>" +
+                "<p>El enlace expirará en 1 hora.</p>" +
+                "</body></html>",
+                user.getFullName(),
+                resetUrl
+            );
+
+            sendMailgunMessage(
+                "soporte@" + mailgunDomain,
+                user.getEmail(),
+                "Restablece tu contraseña de AseoUCP",
+                htmlContent
+            );
+        } catch (Exception e) {
+            System.err.println("Error FATAL al enviar correo de 'restablecer contraseña'.");
+            System.err.println("Error de correo: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    // ------------------------------------------------------------------
+
 
     private String getFirstPhotoUrl(String photosJson) {
         if (photosJson == null || photosJson.isEmpty() || photosJson.equals("[]")) {
