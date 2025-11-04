@@ -42,22 +42,24 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // No crear sesiones
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/auth/login", "/api/auth/register").permitAll() // Endpoints de autenticación públicos
+
+                // --- AQUI ESTÁ LA CORRECCIÓN ---
+                .requestMatchers(
+                    "/api/auth/login", 
+                    "/api/auth/register",
+                    "/api/auth/forgot-password", // <-- PERMITIR ESTE ENDPOINT
+                    "/api/auth/reset-password"   // <-- PERMITIR ESTE ENDPOINT
+                ).permitAll() 
+                // --- FIN DE LA CORRECCIÓN ---
+
                 .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll() // Permitir acceso a archivos subidos
                 .requestMatchers(HttpMethod.POST, "/api/upload").authenticated() // Subir archivos requiere autenticación (ajusta si es necesario)
                 .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated() // Obtener usuario actual requiere token
                 .requestMatchers(HttpMethod.GET, "/api/bathrooms").authenticated() // Ver baños requiere token
-
-                // --- NUEVA REGLA PARA /api/users ---
                 .requestMatchers(HttpMethod.GET, "/api/users").hasAuthority("admin")
-                // ---------------------------------
-
-                // Endpoints de Actividades e Incidentes requieren rol específico
-                 .requestMatchers("/api/cleaning-activities/**").hasAnyAuthority("cleaning_staff", "admin")
-                 .requestMatchers("/api/incidents/**").hasAnyAuthority("cleaning_staff", "admin")
-                 // Puedes ser más específico, ej:
-                 //.requestMatchers(HttpMethod.GET, "/api/cleaning-activities").hasAuthority("admin")
-                 //.requestMatchers(HttpMethod.POST, "/api/cleaning-activities").hasAuthority("cleaning_staff")
+                .requestMatchers("/api/cleaning-activities/**").hasAnyAuthority("cleaning_staff", "admin")
+                .requestMatchers("/api/incidents/**").hasAnyAuthority("cleaning_staff", "admin")
+                
                 .anyRequest().authenticated() // Cualquier otra petición requiere autenticación
             )
             // Añade el filtro JWT antes del filtro de autenticación estándar de Spring
