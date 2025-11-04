@@ -1,10 +1,12 @@
 package com.ucp.aseo_ucp_backend.config;
 
+import java.util.TimeZone;
+
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration; // Para soportar LocalDateTime etc.
+import org.springframework.context.annotation.Configuration; 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule; // <-- AÑADIR IMPORT
 
 @Configuration
 public class JacksonConfig {
@@ -12,9 +14,13 @@ public class JacksonConfig {
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule()); // Añade soporte para java.time
-        // Puedes añadir más configuraciones aquí si las necesitas
-        // mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.registerModule(new JavaTimeModule()); 
+        
+        // --- AÑADIR ESTA LÍNEA ---
+        // Asegura que la serialización de JSON también use la zona horaria de Bogota
+        mapper.setTimeZone(TimeZone.getTimeZone("America/Bogota"));
+        // --------------------------
+
         return mapper;
     }
 }
