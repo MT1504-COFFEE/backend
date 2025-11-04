@@ -48,15 +48,16 @@ public class EmailServiceImpl implements EmailService {
                 return;
             }
 
-            String adminEmails = admins.stream()
-                                       .map(User::getEmail)
-                                       .collect(Collectors.joining(","));
+            // --- INICIO DE LA CORRECCIÓN ---
+            // NO unimos los correos. Se enviará uno por uno.
+            // String adminEmails = admins.stream()... // LÍNEA ELIMINADA
 
             String bathroomName = incident.getBathroom().getName();
             String buildingName = incident.getBathroom().getBuilding() != null ?
                                   incident.getBathroom().getBuilding().getName() : "N/A";
             String reportedBy = incident.getReportedBy().getFullName();
 
+            // El HTML se crea una sola vez
             String htmlContent = String.format(
                 "<html><body>" +
                 "<h2>Se ha reportado un nuevo incidente:</h2>" +
@@ -76,12 +77,19 @@ public class EmailServiceImpl implements EmailService {
                 incident.getDescription()
             );
 
-            sendMailgunMessage(
-                "alertas@" + mailgunDomain,
-                adminEmails,
-                "¡Nuevo Incidente Reportado! - " + incident.getTitle(),
-                htmlContent
-            );
+            // Iteramos sobre cada admin y enviamos un correo individual
+            for (User admin : admins) {
+                if (admin.getEmail() != null && !admin.getEmail().isEmpty()) {
+                    System.out.println("Enviando notificación de incidente a admin: " + admin.getEmail());
+                    sendMailgunMessage(
+                        "alertas@" + mailgunDomain,
+                        admin.getEmail(), // Se envía solo a este admin
+                        "¡Nuevo Incidente Reportado! - " + incident.getTitle(),
+                        htmlContent
+                    );
+                }
+            }
+            // --- FIN DE LA CORRECCIÓN ---
 
         } catch (Exception e) {
             System.err.println("Error FATAL al enviar correo de 'nuevo incidente'. El incidente SÍ se guardó.");
@@ -152,12 +160,10 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    // --- ¡¡ESTE ES EL MÉTODO QUE FALTABA!! ---
     @Async
     @Override
     public void sendPasswordResetLink(User user, String token) {
         try {
-            // Lee la URL del frontend desde las variables de entorno
             String frontendUrl = System.getenv().getOrDefault("FRONTEND_URL", "http://localhost:3000");
             String resetUrl = frontendUrl + "/reset-password?token=" + token;
 
@@ -175,7 +181,7 @@ public class EmailServiceImpl implements EmailService {
             );
 
             sendMailgunMessage(
-                "soporte@" + mailgunDomain, // Puedes cambiar "soporte" por lo que quieras
+                "soporte@" + mailgunDomain,
                 user.getEmail(),
                 "Restablece tu contraseña de AseoUCP",
                 htmlContent
@@ -186,14 +192,12 @@ public class EmailServiceImpl implements EmailService {
             e.printStackTrace();
         }
     }
-    // --- FIN DEL MÉTODO QUE FALTABA ---
 
 
     private void sendMailgunMessage(String from, String to, String subject, String html) {
         String apiUrl = "https://api.mailgun.net/v3/" + mailgunDomain + "/messages";
 
         HttpHeaders headers = new HttpHeaders();
-        // Esta es la corrección que hicimos antes (setContentType)
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         headers.setBasicAuth("api", mailgunApiKey);
 
@@ -205,7 +209,6 @@ public class EmailServiceImpl implements EmailService {
 
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
 
-        // Esta llamada lanzará una excepción si la API Key es incorrecta o el dominio no existe
         ResponseEntity<String> response = restTemplate.postForEntity(apiUrl, request, String.class);
 
         if (!response.getStatusCode().is2xxSuccessful()) {
