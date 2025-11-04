@@ -37,6 +37,12 @@ public class EmailServiceImpl implements EmailService {
     @Value("${MAILGUN_API_KEY}")
     private String mailgunApiKey;
 
+    // --- ESTA ES LA CLAVE ---
+    // El remitente (FROM) TIENE que ser 'postmaster' para el plan Sandbox
+    private String getSandboxFromAddress() {
+        return "postmaster@" + mailgunDomain;
+    }
+    // ----------------------------------
 
     @Async
     @Override
@@ -72,13 +78,12 @@ public class EmailServiceImpl implements EmailService {
                 incident.getDescription()
             );
 
-            // Iteramos sobre cada admin y enviamos un correo individual
             for (User admin : admins) {
                 if (admin.getEmail() != null && !admin.getEmail().isEmpty()) {
                     System.out.println("Enviando notificación de incidente a admin: " + admin.getEmail());
                     sendMailgunMessage(
-                        "alertas@" + mailgunDomain,
-                        admin.getEmail(), // Se envía solo a este admin
+                        getSandboxFromAddress(), // <-- Se usa el 'postmaster'
+                        admin.getEmail(),
                         "¡Nuevo Incidente Reportado! - " + incident.getTitle(),
                         htmlContent
                     );
@@ -141,7 +146,7 @@ public class EmailServiceImpl implements EmailService {
             );
 
             sendMailgunMessage(
-                "asignaciones@" + mailgunDomain,
+                getSandboxFromAddress(), // <-- Se usa el 'postmaster'
                 assignedUser.getEmail(),
                 "Nueva Tarea Asignada: " + incident.getTitle(),
                 htmlContent
@@ -175,7 +180,7 @@ public class EmailServiceImpl implements EmailService {
             );
 
             sendMailgunMessage(
-                "soporte@" + mailgunDomain,
+                getSandboxFromAddress(), // <-- Se usa el 'postmaster'
                 user.getEmail(),
                 "Restablece tu contraseña de AseoUCP",
                 htmlContent
@@ -189,6 +194,9 @@ public class EmailServiceImpl implements EmailService {
 
 
     private void sendMailgunMessage(String from, String to, String subject, String html) {
+        // Añadimos un nombre amigable al remitente
+        String friendlyFrom = "AseoUCP <" + from + ">";
+        
         String apiUrl = "https://api.mailgun.net/v3/" + mailgunDomain + "/messages";
 
         HttpHeaders headers = new HttpHeaders();
@@ -196,7 +204,7 @@ public class EmailServiceImpl implements EmailService {
         headers.setBasicAuth("api", mailgunApiKey);
 
         MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
-        map.add("from", from);
+        map.add("from", friendlyFrom); // <-- Usamos el remitente con nombre amigable
         map.add("to", to);
         map.add("subject", subject);
         map.add("html", html);
