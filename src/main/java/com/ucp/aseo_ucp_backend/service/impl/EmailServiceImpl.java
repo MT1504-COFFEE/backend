@@ -31,9 +31,8 @@ public class EmailServiceImpl implements EmailService {
     @Value("${MAILGUN_DOMAIN}")
     private String mailgunDomain;
 
-    // Ya no necesitamos 'spring.mail.username' aquí
-    // @Value("${spring.mail.username}")
-    // private String fromEmail; 
+    @Value("${frontend.base.url}")
+    private String frontendBaseUrl;
 
     
     @Async // Asegúrate de tener @EnableAsync en AseoUcpBackendApplication.java
@@ -174,4 +173,47 @@ public class EmailServiceImpl implements EmailService {
         }
         return "";
     }
+
+    @Async
+    @Override
+    public void sendPasswordResetLink(User user, String token) {
+        if (user.getEmail() == null) {
+            System.err.println("Error: El usuario " + user.getFullName() + " no tiene email para restablecer contraseña.");
+            return;
+        }
+
+        try {
+            // Construye la URL que irá en el correo
+            String resetUrl = frontendBaseUrl + "/reset-password?token=" + token;
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom("soporte@" + mailgunDomain); // Correo "De:"
+            helper.setTo(user.getEmail()); // Correo "Para:"
+            helper.setSubject("Restablece tu contraseña de AseoUCP");
+
+            String htmlContent = String.format(
+                "<html><body style='font-family: Arial, sans-serif;'>" +
+                "<h2 style='color: #333;'>Hola %s,</h2>" +
+                "<p>Recibimos una solicitud para restablecer tu contraseña. Haz clic en el siguiente enlace para crear una nueva:</p>" +
+                "<a href='%s' style='background-color: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;'>" +
+                "Restablecer Contraseña" +
+                "</a>" +
+                "<p style='margin-top: 20px;'>Si no solicitaste esto, puedes ignorar este correo de forma segura.</p>" +
+                "</body></html>",
+                user.getFullName(), 
+                resetUrl
+            );
+
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+
+        } catch (Exception e) {
+            System.err.println("Error FATAL al enviar correo de 'restablecer contraseña'.");
+            System.err.println("Error de correo: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
 }

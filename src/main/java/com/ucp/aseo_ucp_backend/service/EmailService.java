@@ -9,4 +9,6 @@ public interface EmailService {
     void sendNewIncidentNotification(Incident incident);
     
     void sendIncidentAssignmentNotification(Incident incident, User assignedUser);
+
+    void sendPasswordResetLink(User user, String token);
 }
