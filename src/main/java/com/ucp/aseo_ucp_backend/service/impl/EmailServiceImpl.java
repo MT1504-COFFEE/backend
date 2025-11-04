@@ -197,7 +197,7 @@ public class EmailServiceImpl implements EmailService {
         // Añadimos un nombre amigable al remitente
         String friendlyFrom = "AseoUCP <" + from + ">";
         
-        String apiUrl = "https://api.mailgun.net/v3/" + mailgunDomain + "/messages";
+        String apiUrl = "https://api.mailgun.net" + mailgunDomain + "/messages";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
