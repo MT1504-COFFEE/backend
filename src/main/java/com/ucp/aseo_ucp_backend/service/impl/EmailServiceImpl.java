@@ -37,12 +37,6 @@ public class EmailServiceImpl implements EmailService {
     @Value("${MAILGUN_API_KEY}")
     private String mailgunApiKey;
 
-    // --- ESTA ES LA CLAVE ---
-    // El remitente (FROM) TIENE que ser 'postmaster' para el plan Sandbox
-    private String getSandboxFromAddress() {
-        return "postmaster@" + mailgunDomain;
-    }
-    // ----------------------------------
 
     @Async
     @Override
@@ -53,6 +47,10 @@ public class EmailServiceImpl implements EmailService {
                 System.err.println("ALERTA: No se encontraron administradores para notificar el incidente.");
                 return;
             }
+
+            String adminEmails = admins.stream()
+                                       .map(User::getEmail)
+                                       .collect(Collectors.joining(","));
 
             String bathroomName = incident.getBathroom().getName();
             String buildingName = incident.getBathroom().getBuilding() != null ?
@@ -78,17 +76,12 @@ public class EmailServiceImpl implements EmailService {
                 incident.getDescription()
             );
 
-            for (User admin : admins) {
-                if (admin.getEmail() != null && !admin.getEmail().isEmpty()) {
-                    System.out.println("Enviando notificación de incidente a admin: " + admin.getEmail());
-                    sendMailgunMessage(
-                        getSandboxFromAddress(), // <-- Se usa el 'postmaster'
-                        admin.getEmail(),
-                        "¡Nuevo Incidente Reportado! - " + incident.getTitle(),
-                        htmlContent
-                    );
-                }
-            }
+            sendMailgunMessage(
+                "alertas@" + mailgunDomain,
+                adminEmails,
+                "¡Nuevo Incidente Reportado! - " + incident.getTitle(),
+                htmlContent
+            );
 
         } catch (Exception e) {
             System.err.println("Error FATAL al enviar correo de 'nuevo incidente'. El incidente SÍ se guardó.");
@@ -146,7 +139,7 @@ public class EmailServiceImpl implements EmailService {
             );
 
             sendMailgunMessage(
-                getSandboxFromAddress(), // <-- Se usa el 'postmaster'
+                "asignaciones@" + mailgunDomain,
                 assignedUser.getEmail(),
                 "Nueva Tarea Asignada: " + incident.getTitle(),
                 htmlContent
@@ -159,10 +152,12 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    // --- ¡¡ESTE ES EL MÉTODO QUE FALTABA!! ---
     @Async
     @Override
     public void sendPasswordResetLink(User user, String token) {
         try {
+            // Lee la URL del frontend desde las variables de entorno
             String frontendUrl = System.getenv().getOrDefault("FRONTEND_URL", "http://localhost:3000");
             String resetUrl = frontendUrl + "/reset-password?token=" + token;
 
@@ -180,7 +175,7 @@ public class EmailServiceImpl implements EmailService {
             );
 
             sendMailgunMessage(
-                getSandboxFromAddress(), // <-- Se usa el 'postmaster'
+                "soporte@" + mailgunDomain, // Puedes cambiar "soporte" por lo que quieras
                 user.getEmail(),
                 "Restablece tu contraseña de AseoUCP",
                 htmlContent
@@ -191,26 +186,26 @@ public class EmailServiceImpl implements EmailService {
             e.printStackTrace();
         }
     }
+    // --- FIN DEL MÉTODO QUE FALTABA ---
 
 
     private void sendMailgunMessage(String from, String to, String subject, String html) {
-        // Añadimos un nombre amigable al remitente
-        String friendlyFrom = "AseoUCP <" + from + ">";
-        
-        String apiUrl = "https://api.mailgun.net" + mailgunDomain + "/messages";
+        String apiUrl = "https://api.mailgun.net/v3/" + mailgunDomain + "/messages";
 
         HttpHeaders headers = new HttpHeaders();
+        // Esta es la corrección que hicimos antes (setContentType)
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         headers.setBasicAuth("api", mailgunApiKey);
 
         MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
-        map.add("from", friendlyFrom); // <-- Usamos el remitente con nombre amigable
+        map.add("from", from);
         map.add("to", to);
         map.add("subject", subject);
         map.add("html", html);
 
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
 
+        // Esta llamada lanzará una excepción si la API Key es incorrecta o el dominio no existe
         ResponseEntity<String> response = restTemplate.postForEntity(apiUrl, request, String.class);
 
         if (!response.getStatusCode().is2xxSuccessful()) {
