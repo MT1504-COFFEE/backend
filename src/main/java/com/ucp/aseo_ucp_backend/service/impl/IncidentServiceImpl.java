@@ -65,18 +65,21 @@ public class IncidentServiceImpl implements IncidentService {
              throw new RuntimeException("Error al procesar la lista de fotos para el incidente", e);
          }
 
-         Incident savedIncident = incidentRepository.save(incident); 
+         // --- INICIO DE LA CORRECCIÓN ---
+         // 1. Usamos saveAndFlush() para forzar la escritura en la BD INMEDIATAMENTE
+         Incident savedIncident = incidentRepository.saveAndFlush(incident); 
 
+         // 2. Volvemos a cargar el incidente con todas sus relaciones
+         //    Usamos orElseThrow para detectar si la recarga falla.
          Incident detailedIncident = incidentRepository.findByIdWithDetails(savedIncident.getId())
-                                       .orElse(savedIncident); 
+                                       .orElseThrow(() -> new RuntimeException("Error fatal: No se pudo recargar el incidente " + savedIncident.getId() + " después de guardarlo."));
+         // --- FIN DE LA CORRECCIÓN ---
          
-         // --- LLAMADA SIMPLIFICADA ---
-         // Ya no necesitamos try-catch. Si el correo falla,
-         // el @Async y el try-catch en EmailServiceImpl se encargarán.
+         // Ahora 'detailedIncident' es un objeto con todos los datos cargados (no proxies)
+         // y puede ser pasado de forma segura al método @Async
          emailService.sendNewIncidentNotification(detailedIncident);
-         // ------------------------------------
 
-         return savedIncident; 
+         return savedIncident; // Seguimos devolviendo el incidente original
     }
 
     @Override
@@ -128,12 +131,9 @@ public class IncidentServiceImpl implements IncidentService {
         Incident detailedIncident = incidentRepository.findByIdWithDetails(id)
                                      .orElseThrow(() -> new ResourceNotFoundException("Incidente", "id", id));
 
-        // --- LLAMADA SIMPLIFICADA ---
         if (userToNotify != null) {
-             // Ya no necesitamos try-catch.
             emailService.sendIncidentAssignmentNotification(detailedIncident, userToNotify);
         }
-        // ------------------------------------------------
 
         return IncidentDto.fromEntity(detailedIncident);
     }

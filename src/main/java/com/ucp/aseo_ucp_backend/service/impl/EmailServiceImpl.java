@@ -41,44 +41,12 @@ public class EmailServiceImpl implements EmailService {
     @Async
     @Override
     public void sendNewIncidentNotification(Incident incident) {
-        System.err.println("--- DEBUG: sendNewIncidentNotification INICIADO ---");
-
-        // --- INICIO DE PRUEBA DE DEBUG ---
-        // Vamos a forzar un correo a un destinatario que SABEMOS que funciona.
-        try {
-            System.err.println("--- DEBUG: Intentando envío forzado a mathiuslzn@gmail.com ---");
-            sendMailgunMessage(
-                "debug@" + mailgunDomain,
-                "mathiuslzn@gmail.com", // Correo hardcodeado que sí funciona
-                "PRUEBA DE DEBUG - Incidente Creado",
-                "<html><body>Si recibes esto, la función sendNewIncidentNotification SÍ se está ejecutando.</body></html>"
-            );
-            System.err.println("--- DEBUG: Envío forzado a mathiuslzn@gmail.com TERMINADO (revisa tu correo) ---");
-        } catch (Exception e) {
-            System.err.println("--- DEBUG: ¡¡FALLÓ EL ENVÍO FORZADO!! ---");
-            e.printStackTrace();
-        }
-        // --- FIN DE PRUEBA DE DEBUG ---
-
-
-        // --- LÓGICA ORIGINAL CON MÁS LOGS ---
         try {
             List<User> admins = userRepository.findAllByRole(User.Role.admin);
-
-            // --- DEBUG LOGGING ---
-            System.err.println("--- DEBUG: Buscando admins con rol 'admin' ---");
             if (admins.isEmpty()) {
-                System.err.println("--- DEBUG: ALERTA: No se encontraron administradores. (admins.isEmpty() == true) ---");
-                System.err.println("--- DEBUG: sendNewIncidentNotification TERMINADO (sin admins) ---");
-                return; // Salir si no hay admins
+                System.err.println("ALERTA: No se encontraron administradores para notificar el incidente.");
+                return;
             }
-            
-            System.err.println("--- DEBUG: Admins encontrados: " + admins.size() + " ---");
-            for(User u : admins) {
-                System.err.println("--- DEBUG: Admin encontrado: " + u.getEmail() + ", Rol: " + u.getRole().name());
-            }
-            // --- FIN DEBUG LOGGING ---
-
 
             String bathroomName = incident.getBathroom().getName();
             String buildingName = incident.getBathroom().getBuilding() != null ?
@@ -104,42 +72,41 @@ public class EmailServiceImpl implements EmailService {
                 incident.getDescription()
             );
 
+            // Iteramos sobre cada admin y enviamos un correo individual
             for (User admin : admins) {
                 if (admin.getEmail() != null && !admin.getEmail().isEmpty()) {
-                    System.err.println("--- DEBUG: Intentando envío a admin: " + admin.getEmail() + " ---");
+                    System.out.println("Enviando notificación de incidente a admin: " + admin.getEmail());
                     sendMailgunMessage(
                         "alertas@" + mailgunDomain,
-                        admin.getEmail(),
+                        admin.getEmail(), // Se envía solo a este admin
                         "¡Nuevo Incidente Reportado! - " + incident.getTitle(),
                         htmlContent
                     );
-                } else {
-                     System.err.println("--- DEBUG: Admin con ID " + admin.getId() + " tiene email nulo o vacío. ---");
                 }
             }
-             System.err.println("--- DEBUG: Bucle de admins terminado. ---");
 
         } catch (Exception e) {
-            System.err.println("--- DEBUG: Error FATAL en la lógica de 'nuevo incidente' (después del debug forzado). ---");
+            System.err.println("Error FATAL al enviar correo de 'nuevo incidente'. El incidente SÍ se guardó.");
+            System.err.println("Revisa la configuración de Mailgun (API Key y Dominio).");
+            System.err.println("Error de correo: " + e.getMessage());
             e.printStackTrace();
         }
-         System.err.println("--- DEBUG: sendNewIncidentNotification TERMINADO ---");
     }
 
 
     @Async
     @Override
     public void sendIncidentAssignmentNotification(Incident incident, User assignedUser) {
-        // ... (este método no se toca, asumimos que está bien) ...
         if (assignedUser.getEmail() == null) {
             System.err.println("Error: El usuario " + assignedUser.getFullName() + " no tiene email para notificar.");
             return;
         }
+
         try {
             String bathroomName = incident.getBathroom().getName();
-            String buildingName = incident.getBathroom().getBuilding() != null ? 
+            String buildingName = incident.getBathroom().getBuilding() != null ?
                                   incident.getBathroom().getBuilding().getName() : "N/A";
-            String floor = incident.getBathroom().getFloor() != null ? 
+            String floor = incident.getBathroom().getFloor() != null ?
                            String.valueOf(incident.getBathroom().getFloor().getFloorNumber()) : "N/A";
             String time = incident.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm"));
             String firstPhotoUrl = getFirstPhotoUrl(incident.getPhotos());
@@ -169,10 +136,10 @@ public class EmailServiceImpl implements EmailService {
                 floor,
                 bathroomName,
                 incident.getDescription(),
-                firstPhotoUrl.isEmpty() ? "<p><em>No se adjuntó imagen.</em></p>" : 
+                firstPhotoUrl.isEmpty() ? "<p><em>No se adjuntó imagen.</em></p>" :
                 "<p><strong>Evidencia:</strong><br/><img src='" + firstPhotoUrl + "' alt='Evidencia del incidente' style='max-width: 400px; height: auto;' /></p>"
             );
-            
+
             sendMailgunMessage(
                 "asignaciones@" + mailgunDomain,
                 assignedUser.getEmail(),
@@ -190,7 +157,6 @@ public class EmailServiceImpl implements EmailService {
     @Async
     @Override
     public void sendPasswordResetLink(User user, String token) {
-        // ... (este método no se toca, sabemos que funciona) ...
         try {
             String frontendUrl = System.getenv().getOrDefault("FRONTEND_URL", "http://localhost:3000");
             String resetUrl = frontendUrl + "/reset-password?token=" + token;
