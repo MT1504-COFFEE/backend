@@ -45,6 +45,13 @@ public class User {
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime createdAt;
 
+    @Column(name = "reset_token")
+    private String resetToken;
+
+    @Column(name = "reset_token_expiry")
+    @Temporal(TemporalType.TIMESTAMP)
+    private LocalDateTime resetTokenExpiry;
+
     // Enum para el Rol
     public enum Role {
         cleaning_staff, admin

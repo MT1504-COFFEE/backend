@@ -15,4 +15,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // --- AÑADE ESTE MÉTODO ---
     // Busca todos los usuarios que coincidan con un rol específico
     List<User> findAllByRole(User.Role role);
+
+    Optional<User> findByResetToken(String resetToken);
 }
