@@ -1,64 +1,59 @@
 package com.ucp.aseo_ucp_backend.service.impl;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate; // <-- Importar RestTemplate
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ucp.aseo_ucp_backend.entity.Incident;
 import com.ucp.aseo_ucp_backend.entity.User;
-import com.ucp.aseo_ucp_backend.repository.UserRepository; // <-- AÑADIR IMPORT
+import com.ucp.aseo_ucp_backend.repository.UserRepository;
 import com.ucp.aseo_ucp_backend.service.EmailService;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
 
-    private final JavaMailSender mailSender;
+    // Ya no usamos JavaMailSender
+    // private final JavaMailSender mailSender;
+    private final RestTemplate restTemplate; // <-- Usamos RestTemplate
     private final ObjectMapper objectMapper; 
-    private final UserRepository userRepository; // <-- INYECTAR REPOSITORIO DE USUARIOS
+    private final UserRepository userRepository; 
 
-    // Inyecta el dominio de Mailgun (que te da Railway)
     @Value("${MAILGUN_DOMAIN}")
     private String mailgunDomain;
-
-    @Value("${frontend.base.url}")
-    private String frontendBaseUrl;
+    
+    @Value("${MAILGUN_API_KEY}")
+    private String mailgunApiKey; // La clave 'key-...'
 
     
-    @Async // Asegúrate de tener @EnableAsync en AseoUcpBackendApplication.java
+    @Async
     @Override
     public void sendNewIncidentNotification(Incident incident) {
-        // Atrapa CUALQUIER error para que no rompa la transacción principal
         try {
-            // 1. Buscar todos los administradores
             List<User> admins = userRepository.findAllByRole(User.Role.admin);
             if (admins.isEmpty()) {
                 System.err.println("ALERTA: No se encontraron administradores para notificar el incidente.");
                 return;
             }
 
-            // 2. Convertir la lista de usuarios a un array de emails
-            String[] adminEmails = admins.stream()
-                                         .map(User::getEmail)
-                                         .toArray(String[]::new);
-
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            // 3. Usar el correo de Mailgun como remitente
-            helper.setFrom("alertas@" + mailgunDomain); // Mailgun requiere un correo de su dominio
-            helper.setTo(adminEmails); // <-- Enviar a todos los admins
-            helper.setSubject("¡Nuevo Incidente Reportado! - " + incident.getTitle());
+            // Convertimos la lista de emails a un string separado por comas
+            String adminEmails = admins.stream()
+                                       .map(User::getEmail)
+                                       .collect(Collectors.joining(","));
 
             String bathroomName = incident.getBathroom().getName();
             String buildingName = incident.getBathroom().getBuilding() != null ? 
@@ -84,12 +79,17 @@ public class EmailServiceImpl implements EmailService {
                 incident.getDescription()
             );
             
-            helper.setText(htmlContent, true);
-            mailSender.send(message);
+            // Llamamos al método genérico de envío
+            sendMailgunMessage(
+                "alertas@" + mailgunDomain,
+                adminEmails,
+                "¡Nuevo Incidente Reportado! - " + incident.getTitle(),
+                htmlContent
+            );
 
         } catch (Exception e) {
             System.err.println("Error FATAL al enviar correo de 'nuevo incidente'. El incidente SÍ se guardó.");
-            System.err.println("Revisa la configuración de Mailgun en Railway.");
+            System.err.println("Revisa la configuración de Mailgun (API Key y Dominio).");
             System.err.println("Error de correo: " + e.getMessage());
             e.printStackTrace();
         }
@@ -105,13 +105,6 @@ public class EmailServiceImpl implements EmailService {
         }
 
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom("asignaciones@" + mailgunDomain); // Usar el dominio de Mailgun
-            helper.setTo(assignedUser.getEmail()); 
-            helper.setSubject("Nueva Tarea Asignada: " + incident.getTitle());
-
             String bathroomName = incident.getBathroom().getName();
             String buildingName = incident.getBathroom().getBuilding() != null ? 
                                   incident.getBathroom().getBuilding().getName() : "N/A";
@@ -124,6 +117,7 @@ public class EmailServiceImpl implements EmailService {
                 "<html><body>" +
                 "<h2>Hola %s, se te ha asignado un nuevo incidente:</h2>" +
                 "<p><strong>Título:</strong> %s</p>" +
+                // ... (resto del HTML se queda igual) ...
                 "<p><strong>Prioridad:</strong> %s</p>" +
                 "<p><strong>Reportado el:</strong> %s</p>" +
                 "<hr>" +
@@ -148,15 +142,52 @@ public class EmailServiceImpl implements EmailService {
                 firstPhotoUrl.isEmpty() ? "<p><em>No se adjuntó imagen.</em></p>" : 
                 "<p><strong>Evidencia:</strong><br/><img src='" + firstPhotoUrl + "' alt='Evidencia del incidente' style='max-width: 400px; height: auto;' /></p>"
             );
-
-            helper.setText(htmlContent, true);
-            mailSender.send(message);
+            
+            // Llamamos al método genérico de envío
+            sendMailgunMessage(
+                "asignaciones@" + mailgunDomain,
+                assignedUser.getEmail(),
+                "Nueva Tarea Asignada: " + incident.getTitle(),
+                htmlContent
+            );
 
         } catch (Exception e) {
             System.err.println("Error FATAL al enviar correo de 'asignación'. El incidente SÍ se asignó.");
             System.err.println("Error de correo: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+    
+    // --- NUEVO MÉTODO PRIVADO PARA ENVIAR CON API HTTP ---
+    private void sendMailgunMessage(String from, String to, String subject, String html) {
+        // 1. Definir la URL de la API de Mailgun
+        String apiUrl = "https://api.mailgun.net/v3/" + mailgunDomain + "/messages";
+        
+        // 2. Crear los headers con la Autenticación
+        HttpHeaders headers = new HttpHeaders();
+        headers.setMediaType(MediaType.APPLICATION_FORM_URLENCODED);
+        headers.setBasicAuth("api", mailgunApiKey); // Autenticación "Basic" con usuario "api" y la API Key como contraseña
+
+        // 3. Crear el cuerpo (body) del formulario
+        MultiValueMap<String, String> map= new LinkedMultiValueMap<>();
+        map.add("from", from);
+        map.add("to", to);
+        map.add("subject", subject);
+        map.add("html", html);
+
+        // 4. Crear la petición HTTP
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
+
+        // 5. Enviar la petición
+        // El 'try-catch' está en los métodos de arriba, así que esto lanzará el error si falla
+        ResponseEntity<String> response = restTemplate.postForEntity(apiUrl, request, String.class);
+        
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            // Si Mailgun devuelve un error (ej. 401, 400)
+            throw new RuntimeException("Fallo al enviar correo: " + response.getBody());
+        }
+        
+        System.out.println("Correo enviado exitosamente a: " + to);
     }
 
     private String getFirstPhotoUrl(String photosJson) {
@@ -173,47 +204,4 @@ public class EmailServiceImpl implements EmailService {
         }
         return "";
     }
-
-    @Async
-    @Override
-    public void sendPasswordResetLink(User user, String token) {
-        if (user.getEmail() == null) {
-            System.err.println("Error: El usuario " + user.getFullName() + " no tiene email para restablecer contraseña.");
-            return;
-        }
-
-        try {
-            // Construye la URL que irá en el correo
-            String resetUrl = frontendBaseUrl + "/reset-password?token=" + token;
-
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom("soporte@" + mailgunDomain); // Correo "De:"
-            helper.setTo(user.getEmail()); // Correo "Para:"
-            helper.setSubject("Restablece tu contraseña de AseoUCP");
-
-            String htmlContent = String.format(
-                "<html><body style='font-family: Arial, sans-serif;'>" +
-                "<h2 style='color: #333;'>Hola %s,</h2>" +
-                "<p>Recibimos una solicitud para restablecer tu contraseña. Haz clic en el siguiente enlace para crear una nueva:</p>" +
-                "<a href='%s' style='background-color: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;'>" +
-                "Restablecer Contraseña" +
-                "</a>" +
-                "<p style='margin-top: 20px;'>Si no solicitaste esto, puedes ignorar este correo de forma segura.</p>" +
-                "</body></html>",
-                user.getFullName(), 
-                resetUrl
-            );
-
-            helper.setText(htmlContent, true);
-            mailSender.send(message);
-
-        } catch (Exception e) {
-            System.err.println("Error FATAL al enviar correo de 'restablecer contraseña'.");
-            System.err.println("Error de correo: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
 }
