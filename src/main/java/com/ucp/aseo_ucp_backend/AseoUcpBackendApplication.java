@@ -6,13 +6,13 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync; // <-- AÑADIR IMPORT
 
-import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct; // <-- AÑADIR IMPORT
 
 @SpringBootApplication
-@EnableAsync // <-- AÑADIR ESTA ANOTACIÓN
+@EnableAsync 
 public class AseoUcpBackendApplication {
 
-// --- AÑADIR ESTE MÉTODO ---
+	// --- AÑADIR ESTE MÉTODO ---
 	/**
 	 * Configura la zona horaria por defecto de la aplicación a "America/Bogota".
 	 * Esto asegura que todos los 'LocalDateTime.now()' usen la hora de Colombia.
@@ -26,4 +26,5 @@ public class AseoUcpBackendApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(AseoUcpBackendApplication.class, args);
 	}
+
 }
