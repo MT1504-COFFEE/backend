@@ -75,14 +75,16 @@ public class CleaningActivityDto {
         // Deserializar fotos
         if (activity.getPhotos() != null && !activity.getPhotos().isEmpty() && !activity.getPhotos().equals("[]")) {
            try {
-               // --- CORRECCIÓN AQUÍ ---
                dto.setPhotos(objectMapper.readValue(activity.getPhotos(), new TypeReference<List<String>>() {}));
-           } catch (JsonProcessingException e) { // <- Captura específica
+           
+           // --- CORRECCIÓN AQUÍ ---
+           } catch (Exception e) { // <- Captura genérica de Excepción
+           // -------------------------
+           
                // Usa un logger real en producción
                System.err.println("Error deserializando fotos de actividad " + activity.getId() + ": " + e.getMessage());
                dto.setPhotos(List.of());
            }
-           // -------------------------
         } else {
            dto.setPhotos(List.of());
         }
