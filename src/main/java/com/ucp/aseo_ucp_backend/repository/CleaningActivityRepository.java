@@ -17,8 +17,10 @@ public interface CleaningActivityRepository extends JpaRepository<CleaningActivi
        "LEFT JOIN FETCH ca.bathroom b " +
        "LEFT JOIN FETCH b.building bu " +
        "LEFT JOIN FETCH b.floor fl " + // Si necesitas datos del piso
-       "LEFT JOIN FETCH ca.areasCleaned ac " +
-       "LEFT JOIN FETCH ca.suppliesRefilled sr " +
+       // --- LÍNEAS ELIMINADAS ---
+       // "LEFT JOIN FETCH ca.areasCleaned ac " + (Eliminada)
+       // "LEFT JOIN FETCH ca.suppliesRefilled sr " + (Eliminada)
+       // --------------------------
        "ORDER BY ca.createdAt DESC")
     List<CleaningActivity> findAllWithDetails();
 }
